@@ -1,11 +1,12 @@
 import plotly.graph_objects as go
 import networkx as nx
 import numpy as np
+from pathlib import Path
 
 def plot_skill_clusters(job_skill_map, max_skills=1000, min_edge_weight=3):
     print("Launching 3D skill cluster visualization...")
 
-    # Step 1: Build co-occurrence graph
+    # Build co-occurrence graph
     co_occurrence = {}
     for skills in job_skill_map.values():
         skills = list(skills)
@@ -29,37 +30,89 @@ def plot_skill_clusters(job_skill_map, max_skills=1000, min_edge_weight=3):
     labels = list(G.nodes())
     degrees = np.array([G.degree[n] for n in labels])
 
-    # Create 3D edge traces (initially hidden)
-    edge_traces = []
-    edge_map = {}  # for sidebar display
-    for node in G.nodes():
-        edge_map[node] = []
-        for neighbor in G.neighbors(node):
-            x0, y0, z0 = pos[node]
-            x1, y1, z1 = pos[neighbor]
-            edge_map[node].append((neighbor, G.degree[neighbor]))
-            edge_traces.append(go.Scatter3d(
-                x=[x0, x1, None], y=[y0, y1, None], z=[z0, z1, None],
-                mode='lines',
-                line=dict(color='rgba(255,255,255,0.6)', width=2),
-                hoverinfo='none',
-                hovertemplate="%{text}<extra></extra>",
-                name=f'{node}↔{neighbor}',
-                visible=False
-            ))
+    # Build edge map for JS
+    edge_segments = {}
+    edge_x_all, edge_y_all, edge_z_all = [], [], []
 
+    for i, (a, b) in enumerate(G.edges()):
+        x0, y0, z0 = pos[a]
+        x1, y1, z1 = pos[b]
+        
+        edge_segments.setdefault(a, []).append([x0, x1, None])
+        edge_segments.setdefault(b, []).append([x0, x1, None])
+        edge_segments.setdefault(a + "_y", []).append([y0, y1, None])
+        edge_segments.setdefault(b + "_y", []).append([y0, y1, None])
+        edge_segments.setdefault(a + "_z", []).append([z0, z1, None])
+        edge_segments.setdefault(b + "_z", []).append([z0, z1, None])
+
+
+    # Initially blank edge trace
+    edge_trace = go.Scatter3d(
+        x=[],
+        y=[],
+        z=[],
+        mode='lines',
+        line=dict(color='rgba(255,255,255,0.9)', width=2),
+        hoverinfo='none',
+        name='edges'
+    )
+    def format_into_text_columns(pairs, max_per_col=30, max_cols=5):
+        # Sort by weight descending
+        pairs.sort(key=lambda x: x[1], reverse=True)
+
+        # Format each item as padded string using non-breaking spaces
+        items = [f"{label} ({weight})" for label, weight in pairs]
+        max_items = max_per_col * max_cols
+        items = items[:max_items]
+
+        # Split into vertical columns
+        num_cols = (len(items) + max_per_col - 1) // max_per_col
+        columns = [items[i * max_per_col:(i + 1) * max_per_col] for i in range(num_cols)]
+
+        # Pad to equal height
+        height = max(len(col) for col in columns)
+        for col in columns:
+            col += [''] * (height - len(col))
+
+        # Build row-by-row with non-breaking spacing
+        lines = []
+        for row_idx in range(height):
+            row = [col[row_idx].ljust(25).replace(" ", "&nbsp;") for col in columns]
+            lines.append("&nbsp;&nbsp;&nbsp;&nbsp;".join(row))
+
+        return "<br>".join(lines)
+
+
+
+
+
+
+    hover_texts = []
+    for node in G.nodes():
+        neighbors = list(G.neighbors(node))
+        neighbor_pairs = [(neighbor, G[node][neighbor]['weight']) for neighbor in neighbors]
+        tooltip_text = format_into_text_columns(neighbor_pairs)
+
+        hover_texts.append(f"<b>{node}</b><br><br>{tooltip_text}")
+
+
+
+
+    # Node trace
     trace = go.Scatter3d(
-        x=coords[:, 0], y=coords[:, 1], z=coords[:, 2],
+        x=coords[:, 0],
+        y=coords[:, 1],
+        z=coords[:, 2],
         mode='markers',
         marker=dict(
-            size=5,
+            size=[5] * len(labels),
             color=degrees,
             colorscale='Viridis',
-            opacity=0.8,
+            opacity=0.9,
             line=dict(width=0),
         ),
-        text=labels,
-        hovertemplate="%{text}<extra></extra>"  # Hides XYZ
+        text=hover_texts,
+        hoverinfo="text"
     )
 
 
@@ -73,41 +126,6 @@ def plot_skill_clusters(job_skill_map, max_skills=1000, min_edge_weight=3):
         )
     )
 
-    fig = go.Figure(data=[trace] + edge_traces, layout=layout)
-    fig.write_html("skill_clusters_3d.html", auto_open=True, include_plotlyjs='cdn')
-
-    with open("skill_clusters_3d.html", "a", encoding="utf-8") as f:
-        f.write("""
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-    const plotDiv = document.querySelector(".js-plotly-plot");
-
-    if (!plotDiv) return;
-
-    plotDiv.on('plotly_hover', function(data) {
-        const node = data.points[0].text;
-        const traces = plotDiv.data;
-        const vis = [];
-
-        for (let i = 0; i < traces.length; i++) {
-            if (i === 0) {
-                vis.push(true);  // Node trace always on
-            } else if (traces[i].name.startsWith(node + '↔') || traces[i].name.endsWith('↔' + node)) {
-                vis.push(true);  // Show only edges connected to hovered node
-            } else {
-                vis.push(false); // Hide all other edges
-            }
-        }
-
-        Plotly.restyle(plotDiv, { visible: vis });
-    });
-
-    plotDiv.on('plotly_unhover', function() {
-        const traces = plotDiv.data;
-        const vis = traces.map((_, i) => i === 0); // Only node scatter trace stays on
-        Plotly.restyle(plotDiv, { visible: vis });
-    });
-});
-</script>
-
-""")
+    # Final figure
+    fig = go.Figure(data=[edge_trace, trace], layout=layout)
+    fig.write_html("skill_clusters_3d.html", auto_open=True, include_plotlyjs='cdn', full_html=True)
