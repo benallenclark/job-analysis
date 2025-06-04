@@ -18,21 +18,20 @@ from charts.plot_greedy_unlock_curve import compute_greedy_unlock_data, plot_gre
 import tkinter as tk
 from tkinter import ttk
 from threading import Thread
-import tkinter.messagebox
+from charts.plot_skill_galaxy import plot_skill_galaxy
+from charts.plot_skill_clusters import plot_skill_clusters
+
+
+
 
 def show_skill_galaxy():
     job_skill_map, _ = load_job_skill_map()
-    fig = plot_skill_galaxy(job_skill_map, show_edges=show_edges_var.get())
+    plot_skill_galaxy(job_skill_map, show_edges=show_edges_var.get())
 
-    fig_window = tk.Toplevel(root)
-    fig_window.title("Skill Galaxy (3D)")
-
-    canvas = FigureCanvasTkAgg(fig, master=fig_window)
-    canvas.draw()
-    canvas.get_tk_widget().pack(fill="both", expand=True)
-
-    # Enable scroll-zoom
-    fig.canvas.mpl_connect("scroll_event", lambda event: fig.canvas.toolbar.zoom())
+def run_skill_clusters():
+    job_skill_map, _ = load_job_skill_map()
+    print("Launching 3D skill cluster visualization...")
+    plot_skill_clusters(job_skill_map)
 
 
 
@@ -65,6 +64,7 @@ def start_greedy_chart():
         canvas.get_tk_widget().pack(fill="both", expand=True)
 
     Thread(target=run_chart, daemon=True).start()
+
 
 
 
@@ -176,15 +176,12 @@ tk.Button(root, text="Skill–Job Heatmap", command=lambda: plot_skill_job_heatm
 tk.Button(root, text="Skill Network Graph", command=lambda: plot_skill_network(
     compute_skill_edges(load_job_skill_map()[0])
 )).pack(pady=5)
-show_edges_var = tk.BooleanVar(value=True)
+show_edges_var = tk.BooleanVar(value=False)
 
 
 tk.Checkbutton(root, text="Show Connections", variable=show_edges_var, command=show_skill_galaxy).pack(pady=3)
-tk.Button(root, text="Skill Galaxy (3D)", command=show_skill_galaxy).pack(pady=5)
 
-
-
-
+tk.Button(root, text="Skill Clusters (3D)", command=lambda: Thread(target=run_skill_clusters).start()).pack(pady=5)
 
 # Chart buttons
 buttons = [
@@ -270,5 +267,6 @@ bind_mousewheel(canvas, canvas)
 
 
 
+print("GUI loaded successfully. Ready.")
 
 root.mainloop()

@@ -1,8 +1,5 @@
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+import plotly.graph_objects as go
 import networkx as nx
-import matplotlib.cm as cm
-import matplotlib.colors as mcolors
 import numpy as np
 
 def plot_skill_galaxy(job_skill_map, show_edges=True):
@@ -21,33 +18,68 @@ def plot_skill_galaxy(job_skill_map, show_edges=True):
         if weight >= 3:
             G.add_edge(a, b, weight=weight)
 
-    # Step 2: Use spring layout for natural clustering (scale weights as attraction strength)
-    pos_2d = nx.spring_layout(G, weight='weight', dim=3, seed=42)  # 3D layout using spring physics
-    pos = {k: (v[0], v[1], v[2]) for k, v in pos_2d.items()}
+    # 3D spring layout
+    pos = nx.spring_layout(G, dim=3, seed=42, weight='weight')
+    node_x, node_y, node_z, node_labels = [], [], [], []
+    for node in G.nodes():
+        x, y, z = pos[node]
+        node_x.append(x)
+        node_y.append(y)
+        node_z.append(z)
+        node_labels.append(node)
 
-    # Normalize weights for color gradient
+    # Plot nodes
+    node_trace = go.Scatter3d(
+        x=node_x, y=node_y, z=node_z,
+        mode='markers+text',
+        text=node_labels,
+        textposition='top center',
+        hoverinfo='text',
+        marker=dict(
+            size=6,
+            color='skyblue',
+            opacity=0.8
+        )
+    )
+
+    # Plot edges
+    edge_x, edge_y, edge_z, edge_colors = [], [], [], []
     weights = [d['weight'] for _, _, d in G.edges(data=True)]
-    if not weights:
-        weights = [1]
-    norm = mcolors.Normalize(vmin=min(weights), vmax=max(weights))
-    cmap = cm.get_cmap('plasma')
+    min_w, max_w = min(weights, default=1), max(weights, default=10)
 
-    # Plot
-    fig = plt.figure(figsize=(12, 10))
-    ax = fig.add_subplot(111, projection='3d')
-    ax.set_title("Skill Galaxy – Clustered by Co-occurrence")
+    def weight_to_color(w):
+        norm = (w - min_w) / (max_w - min_w + 1e-5)
+        return f"rgb({int(255 * norm)}, 0, {int(255 * (1 - norm))})"  # red to blue
 
-    # Draw nodes
-    xs, ys, zs = zip(*[pos[n] for n in G.nodes()])
-    ax.scatter(xs, ys, zs, s=40, c='skyblue', alpha=0.9)
+    for a, b, data in G.edges(data=True):
+        x0, y0, z0 = pos[a]
+        x1, y1, z1 = pos[b]
+        edge_x += [x0, x1, None]
+        edge_y += [y0, y1, None]
+        edge_z += [z0, z1, None]
+        edge_colors.append(weight_to_color(data['weight']))
 
-    if show_edges:
-        for a, b, data in G.edges(data=True):
-            x = [pos[a][0], pos[b][0]]
-            y = [pos[a][1], pos[b][1]]
-            z = [pos[a][2], pos[b][2]]
-            color = cmap(norm(data['weight']))
-            ax.plot(x, y, z, c=color, linewidth=1.0, alpha=0.7)
+    edge_trace = go.Scatter3d(
+        x=edge_x, y=edge_y, z=edge_z,
+        mode='lines',
+        line=dict(width=1, color='gray'),
+        hoverinfo='none',
+        opacity=0.5
+    )
 
-    # Interactivity enabled when plt.show() is called by Tk backend
-    return fig
+    fig = go.Figure(data=[edge_trace, node_trace])
+    fig.update_layout(
+        title="Skill Galaxy (3D)",
+        title_font_size=20,
+        showlegend=False,
+        margin=dict(l=0, r=0, b=0, t=40),
+        paper_bgcolor='rgb(30,30,30)',
+        scene=dict(
+            xaxis=dict(visible=False),
+            yaxis=dict(visible=False),
+            zaxis=dict(visible=False),
+            bgcolor='rgb(30,30,30)'
+        )
+    )
+
+    fig.show()
