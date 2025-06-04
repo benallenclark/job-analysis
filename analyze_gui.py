@@ -22,27 +22,32 @@ import tkinter.messagebox
 
 def show_skill_galaxy():
     job_skill_map, _ = load_job_skill_map()
-    fig = plot_skill_galaxy(job_skill_map)
+    fig = plot_skill_galaxy(job_skill_map, show_edges=show_edges_var.get())
+
     fig_window = tk.Toplevel(root)
-    fig_window.title("Skill Galaxy")
+    fig_window.title("Skill Galaxy (3D)")
 
     canvas = FigureCanvasTkAgg(fig, master=fig_window)
     canvas.draw()
     canvas.get_tk_widget().pack(fill="both", expand=True)
+
+    # Enable scroll-zoom
+    fig.canvas.mpl_connect("scroll_event", lambda event: fig.canvas.toolbar.zoom())
+
 
 
 
 
 
 def start_greedy_chart():
-    user_skills = get_user_selected_skills()  # ✅ Capture user-selected skills
+    user_skills = get_user_selected_skills()  # Capture user-selected skills
 
     def run_chart():
         # Step 1: Load data and compute unlock curve using user-selected skills
         job_skill_map, _ = load_job_skill_map()
         coverage_progress, selected_skills = compute_greedy_unlock_data(
             job_skill_map,
-            user_skills=user_skills  # ✅ Pass them here
+            user_skills=user_skills
         )
 
         # Step 2: Schedule UI update in main thread
