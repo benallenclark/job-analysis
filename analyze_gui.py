@@ -206,6 +206,31 @@ def apply_filter():
     search_text = search_entry.get().strip().lower()
     filtered = [(s, f) for s, f in all_skills if search_text in s]
     render_skill_checkboxes(filtered)
+    
+    
+def update_skills():
+    global current_skills
+    selected = get_user_selected_skills()
+    current_skills[:] = [s for s in raw_skills if s not in selected]
+    status_label.config(text=f"Selected: {', '.join(selected) or 'None'}")
+
+def find_matching_jobs():
+    # Clear existing results
+    for widget in scrollable_frame.winfo_children():
+        widget.destroy()
+
+    user_skills = set(get_user_selected_skills())
+    matched = []
+    for job_id, req_skills in job_skill_map.items():
+        if req_skills.issubset(user_skills):
+            matched.append(job_info_map[job_id])
+
+    if matched:
+        for title, company in matched:
+            ttk.Label(scrollable_frame, text=f"✅ {title} @ {company}", anchor="w").pack(fill="x", padx=5, pady=2)
+    else:
+        ttk.Label(scrollable_frame, text="❌ No exact matches found.", foreground="red").pack(fill="x", padx=5, pady=2)
+
 
 search_entry.bind("<KeyRelease>", filter_skills_delayed)
 
@@ -232,28 +257,6 @@ actions_frame.grid_columnconfigure(1, weight=1)
 status_label = ttk.Label(actions_frame, text="Selected: None")
 status_label.grid(row=0, column=0, columnspan=2, sticky="w", pady=(0,5))
 
-def update_skills():
-    global current_skills
-    selected = get_user_selected_skills()
-    current_skills[:] = [s for s in raw_skills if s not in selected]
-    status_label.config(text=f"Selected: {', '.join(selected) or 'None'}")
-
-def find_matching_jobs():
-    # Clear existing results
-    for widget in scrollable_frame.winfo_children():
-        widget.destroy()
-
-    user_skills = set(get_user_selected_skills())
-    matched = []
-    for job_id, req_skills in job_skill_map.items():
-        if req_skills.issubset(user_skills):
-            matched.append(job_info_map[job_id])
-
-    if matched:
-        for title, company in matched:
-            ttk.Label(scrollable_frame, text=f"✅ {title} @ {company}", anchor="w").pack(fill="x", padx=5, pady=2)
-    else:
-        ttk.Label(scrollable_frame, text="❌ No exact matches found.", foreground="red").pack(fill="x", padx=5, pady=2)
 
 # Update Skills button
 btn_update = ttk.Button(actions_frame, text="Update Skills", command=update_skills)
@@ -274,11 +277,18 @@ chk_show_conn = ttk.Checkbutton(
 chk_show_conn.grid(row=2, column=0, columnspan=2, pady=5, sticky="w")
 
 
+
+
+
+
+
 # ─── Charts Frame (all chart buttons) ───────────────────────────────────────
 charts_frame = ttk.LabelFrame(right_container, text="Charts", padding=(5,5))
 charts_frame.grid(row=1, column=0, sticky="ew", padx=5, pady=(0,5))
-for i in range(2):
+for i in range(3):
     charts_frame.grid_columnconfigure(i, weight=1)
+
+# ─── Row 0 ───────────────────────────────────────
 
 # Diminishing Returns Chart
 btn_diminishing = ttk.Button(
@@ -320,7 +330,11 @@ btn_greedy = ttk.Button(
     command=start_greedy_chart,
     width=25
 )
-btn_greedy.grid(row=1, column=0, padx=5, pady=2, sticky="ew")
+btn_greedy.grid(row=0, column=2, padx=5, pady=2, sticky="ew")
+
+
+# ─── Row 1 ───────────────────────────────────────
+
 
 # Skill–Job Heatmap
 btn_heatmap = ttk.Button(
@@ -329,7 +343,7 @@ btn_heatmap = ttk.Button(
     command=lambda: plot_skill_job_heatmap(job_skill_map),
     width=25
 )
-btn_heatmap.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
+btn_heatmap.grid(row=1, column=0, padx=5, pady=2, sticky="ew")
 
 # Skill Network Graph
 btn_network = ttk.Button(
@@ -338,7 +352,7 @@ btn_network = ttk.Button(
     command=lambda: plot_skill_network(compute_skill_edges(load_job_skill_map()[0])),
     width=25
 )
-btn_network.grid(row=2, column=0, padx=5, pady=2, sticky="ew")
+btn_network.grid(row=1, column=1, padx=5, pady=2, sticky="ew")
 
 # Skill Galaxy (3D Plot with toggle above)
 btn_galaxy = ttk.Button(
@@ -347,7 +361,11 @@ btn_galaxy = ttk.Button(
     command=lambda: Thread(target=lambda: plot_skill_galaxy(job_skill_map, show_edges=show_edges_var.get())).start(),
     width=25
 )
-btn_galaxy.grid(row=2, column=1, padx=5, pady=2, sticky="ew")
+btn_galaxy.grid(row=1, column=2, padx=5, pady=2, sticky="ew")
+
+
+# ─── Row 2 ───────────────────────────────────────
+
 
 # Bar Chart
 btn_bar = ttk.Button(
@@ -356,7 +374,7 @@ btn_bar = ttk.Button(
     command=lambda: plot_top_skills_bar(job_skill_map, get_user_selected_skills()),
     width=25
 )
-btn_bar.grid(row=3, column=0, padx=5, pady=2, sticky="ew")
+btn_bar.grid(row=2, column=0, padx=5, pady=2, sticky="ew")
 
 # Cumulative Line Chart
 btn_cumline = ttk.Button(
@@ -365,7 +383,7 @@ btn_cumline = ttk.Button(
     command=lambda: plot_cumulative_line(current_skills),
     width=25
 )
-btn_cumline.grid(row=3, column=1, padx=5, pady=2, sticky="ew")
+btn_cumline.grid(row=2, column=1, padx=5, pady=2, sticky="ew")
 
 # Stackplot
 btn_stack = ttk.Button(
@@ -374,7 +392,11 @@ btn_stack = ttk.Button(
     command=lambda: plot_stackplot(current_skills),
     width=25
 )
-btn_stack.grid(row=4, column=0, padx=5, pady=2, sticky="ew")
+btn_stack.grid(row=2, column=2, padx=5, pady=2, sticky="ew")
+
+
+# ─── Row 3 ───────────────────────────────────────
+
 
 # Subplot2Grid
 btn_subplot = ttk.Button(
@@ -383,7 +405,7 @@ btn_subplot = ttk.Button(
     command=lambda: plot_subplot2grid(current_skills),
     width=25
 )
-btn_subplot.grid(row=4, column=1, padx=5, pady=2, sticky="ew")
+btn_subplot.grid(row=3, column=0, padx=5, pady=2, sticky="ew")
 
 # Pareto Chart
 btn_pareto = ttk.Button(
@@ -392,7 +414,7 @@ btn_pareto = ttk.Button(
     command=lambda: plot_pareto_chart(current_skills),
     width=25
 )
-btn_pareto.grid(row=5, column=0, padx=5, pady=2, sticky="ew")
+btn_pareto.grid(row=3, column=1, padx=5, pady=2, sticky="ew")
 
 # Salary Distribution
 btn_salary = ttk.Button(
@@ -401,7 +423,11 @@ btn_salary = ttk.Button(
     command=lambda: plot_salary_distribution(),
     width=25
 )
-btn_salary.grid(row=6, column=0, padx=5, pady=2, sticky="ew")
+btn_salary.grid(row=3, column=2, padx=5, pady=2, sticky="ew")
+
+
+# ─── Row 4 ───────────────────────────────────────
+
 
 # 3D Skill Clusters
 btn_clusters3d = ttk.Button(
@@ -410,7 +436,7 @@ btn_clusters3d = ttk.Button(
     command=lambda: Thread(target=lambda: plot_skill_clusters(job_skill_map)).start(),
     width=25
 )
-btn_clusters3d.grid(row=5, column=1, padx=5, pady=2, sticky="ew")
+btn_clusters3d.grid(row=4, column=0, padx=5, pady=2, sticky="ew")
 
 # 2D Skill Clusters (Radial)
 btn_clusters2d = ttk.Button(
@@ -419,7 +445,7 @@ btn_clusters2d = ttk.Button(
     command=lambda: Thread(target=lambda: plot_skill_clusters_radial(job_skill_map)).start(),
     width=25
 )
-btn_clusters2d.grid(row=6, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_clusters2d.grid(row=4, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
 
 btn_skill_gap = ttk.Button(
     charts_frame,
@@ -436,9 +462,14 @@ btn_skill_gap = ttk.Button(
     width=25
 )
 # Place it below Salary Distribution (row=7, col=0)
-btn_skill_gap.grid(row=7, column=0, padx=5, pady=2, sticky="ew")
+btn_skill_gap.grid(row=4, column=2, padx=5, pady=2, sticky="ew")
 
-# ─── Word Cloud of Job Titles ───────────────────────────────────────────────
+
+
+# ─── Row 5 ───────────────────────────────────────
+
+
+# ─── Word Cloud of Job Titles
 btn_word_cloud = ttk.Button(
     charts_frame,
     text="Word Cloud: Job Titles",
@@ -446,7 +477,7 @@ btn_word_cloud = ttk.Button(
     width=25
 )
 # Place it below Skill Gap Analysis (adjust row/column as needed)
-btn_word_cloud.grid(row=7, column=1, padx=5, pady=2, sticky="ew")
+btn_word_cloud.grid(row=5, column=0, padx=5, pady=2, sticky="ew")
 
 # ─── Remote vs. On-Site Pie Chart ─────────────────────────────────────────
 btn_remote_onsite = ttk.Button(
@@ -458,7 +489,7 @@ btn_remote_onsite = ttk.Button(
     width=25
 )
 # Adjust row/column to place it where you like; e.g., row=7, column=1:
-btn_remote_onsite.grid(row=8, column=0, padx=5, pady=2, sticky="ew")
+btn_remote_onsite.grid(row=5, column=1, padx=5, pady=2, sticky="ew")
 
 from charts.plot_certification_distribution import plot_certification_distribution
 # ─── Certification Distribution Chart ─────────────────────────────────────
@@ -472,7 +503,10 @@ btn_cert_dist = ttk.Button(
     width=25
 )
 # Place it at row=15, spanning both columns:
-btn_cert_dist.grid(row=8, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_cert_dist.grid(row=5, column=2, columnspan=1, padx=5, pady=2, sticky="ew")
+
+
+# ─── Row 6 ───────────────────────────────────────
 
 
 from charts.plot_certification_salary_impact import plot_certification_salary_impact
@@ -487,7 +521,7 @@ btn_cert_salary_imp = ttk.Button(
     width=25
 )
 # Place at row=9, spanning one column
-btn_cert_salary_imp.grid(row=9, column=0, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_cert_salary_imp.grid(row=6, column=0, columnspan=1, padx=5, pady=2, sticky="ew")
 
 
 
@@ -508,7 +542,7 @@ btn_top_companies = ttk.Button(
     width=25
 )
 # Place it on the next free row, e.g. row=8, spanning both columns:
-btn_top_companies.grid(row=9, column=1, columnspan=1, padx=5, pady=(5,10), sticky="ew")
+btn_top_companies.grid(row=6, column=1, columnspan=1, padx=5, pady=(5,10), sticky="ew")
 
 
 from charts.plot_certification_cooccurrence_network import plot_certification_cooccurrence_network
@@ -529,7 +563,11 @@ btn_cert_coocc = ttk.Button(
     width=25
 )
 # Place it at row=18, spanning both columns
-btn_cert_coocc.grid(row=10, column=0, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_cert_coocc.grid(row=6, column=2, columnspan=1, padx=5, pady=2, sticky="ew")
+
+
+
+# ─── Row 7 ───────────────────────────────────────
 
 
 
@@ -544,7 +582,8 @@ btn_skill_salary_corr = ttk.Button(
     width=25
 )
 # Put it at row=11, column=0 (adjust if needed)
-btn_skill_salary_corr.grid(row=10, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
+
+btn_skill_salary_corr.grid(row=7, column=0, columnspan=1, padx=5, pady=2, sticky="ew")
 from charts.plot_skill_gap_similarity_matrix import plot_skill_gap_similarity_matrix
 # ─── Skill‐Gap Similarity Matrix ────────────────────────────────────────────
 btn_skill_gap_sim = ttk.Button(
@@ -559,7 +598,7 @@ btn_skill_gap_sim = ttk.Button(
     ).start(),
     width=25
 )
-btn_skill_gap_sim.grid(row=11, column=0, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_skill_gap_sim.grid(row=7, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
 
 from charts.plot_company_skill_focus import plot_company_skill_focus
 # ─── Company Skill Focus Chart ─────────────────────────────────────────────
@@ -578,7 +617,11 @@ btn_company_focus = ttk.Button(
     width=25
 )
 # Place it at an unused row, e.g., row=13, column=0 (adjust as needed)
-btn_company_focus.grid(row=11, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_company_focus.grid(row=7, column=2, columnspan=1, padx=5, pady=2, sticky="ew")
+
+
+# ─── Row 8 ───────────────────────────────────────
+
 
 from charts.plot_title_salary_bubble_chart import plot_title_salary_bubble_chart
 # ─── Title‐Salary Bubble Chart ───────────────────────────────────────────────
@@ -592,7 +635,7 @@ btn_title_salary = ttk.Button(
     width=25
 )
 # Place it at an unused row, e.g., row=14, column=0 (adjust as needed)
-btn_title_salary.grid(row=12, column=0, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_title_salary.grid(row=8, column=0, columnspan=1, padx=5, pady=2, sticky="ew")
 
 from charts.plot_skill_similarity_tSNE import plot_skill_similarity_tSNE
 # ─── Skill‐Similarity t-SNE ─────────────────────────────────────────────────
@@ -609,7 +652,7 @@ btn_skill_tsne = ttk.Button(
     ).start(),
     width=25
 )
-btn_skill_tsne.grid(row=12, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_skill_tsne.grid(row=8, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
 
 
 from charts.plot_company_skill_cluster_sankey import plot_company_skill_cluster_sankey
@@ -628,7 +671,11 @@ btn_company_skill_sankey = ttk.Button(
     ).start(),
     width=25
 )
-btn_company_skill_sankey.grid(row=13, column=0, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_company_skill_sankey.grid(row=8, column=2, columnspan=1, padx=5, pady=2, sticky="ew")
+
+
+# ─── Row 9 ───────────────────────────────────────
+
 
 
 from charts.plot_certification_presence_by_skill_cluster import (
@@ -649,9 +696,23 @@ btn_cert_by_cluster = ttk.Button(
     ).start(),
     width=25
 )
-btn_cert_by_cluster.grid(row=13, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
+btn_cert_by_cluster.grid(row=9, column=0, columnspan=1, padx=5, pady=2, sticky="ew")
 
 
+from charts.plot_required_optional_skill_breakdown import plot_required_optional_skill_breakdown
+# ─── Required vs Optional Skill Breakdown ───────────────────────────────────
+btn_req_opt_skills = ttk.Button(
+    charts_frame,
+    text="Required vs Optional Skills",
+    command=lambda: Thread(
+        target=lambda: plot_required_optional_skill_breakdown(
+            "preview_jobs.db", get_user_selected_skills()
+        ),
+        daemon=True
+    ).start(),
+    width=25
+)
+btn_req_opt_skills.grid(row=9, column=1, columnspan=1, padx=5, pady=2, sticky="ew")
 
 
 
